@@ -7,7 +7,7 @@ let onChatListUpdate: (() => void ) | null = null;
 
 export function connectWebSocket() {
   if (ws || !state.token) return;
-  ws = new WebSocket('ws://127.0.0.1:9090'); // Use your correct port
+  ws = new WebSocket('wss://terminal-chat-backend-tesla77.onrender.com'); // Use your correct port
 
   ws.on('open', () => {
     if (ws) ws.send(JSON.stringify({ type: 'auth', token: state.token }));

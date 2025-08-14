@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:9090/api',
+  baseURL: 'https://terminal-chat-backend-tesla77.onrender.com/api',
   timeout: 10000,
 });
 
