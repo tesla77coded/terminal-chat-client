@@ -74,3 +74,11 @@ For the best experience, your terminal environment should have:
 * **Backend Communication**: Axios & WebSockets
 * **Cryptography**: Node.js `crypto` module
 * **Packaging**: Bun
+
+---
+
+## 👋 Say Hi!
+
+This project was built by **tesla77**.
+
+Want to see the app in action or have some feedback? Find me inside the app! Once you've registered, use the search bar to find the username `tesla77` and send a message.
