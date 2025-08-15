@@ -48,6 +48,38 @@ For the best experience, your terminal environment should have:
    
 ---
 
+### (Optional) Global Access
+
+To run the application from any directory without needing to navigate to its folder, you can add the executable to your system's PATH.
+
+#### Linux & macOS
+
+1.  Open a terminal and navigate to where you downloaded the file.
+2.  Move the executable to `/usr/local/bin`, a standard location for user-installed programs. This command also renames the file to `terminal-chat` for convenience.
+    ```bash
+    # For Linux
+    sudo mv ./terminal-chat-linux /usr/local/bin/terminal-chat
+
+    # For macOS
+    sudo mv ./terminal-chat-macos /usr/local/bin/terminal-chat
+    ```
+3.  You can now open any new terminal and start the application by typing `terminal-chat`.
+
+#### Windows
+
+1.  Create a permanent folder for your application, for example: `C:\Program Files\terminal-chat\`
+2.  Move the `terminal-chat-win.exe` file into this new folder.
+3.  Add the folder to your PATH:
+    * Open the Start Menu and search for "**Environment Variables**".
+    * Click on "**Edit the system environment variables**".
+    * Click the "**Environment Variables...**" button.
+    * In the "User variables" section, find and select the **`Path`** variable, then click **"Edit..."**.
+    * Click **"New"** and paste in the path to your folder (e.g., `C:\Program Files\terminal-chat`).
+    * Click **"OK"** on all windows to save.
+4.  Open a **new** terminal window. You can now start the application from anywhere by typing `terminal-chat-win.exe`.
+
+---
+
 ## 🛠️ For Developers (Running from Source)
 
 1.  **Clone the repository:**
