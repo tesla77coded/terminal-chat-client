@@ -4,6 +4,9 @@
 # Compiled TypeScript files
 /dist
 
+# Distribution files
+/release
+
 # Environment variables (if you ever add one)
 .env
 
