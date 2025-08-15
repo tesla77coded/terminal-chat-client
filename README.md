@@ -44,7 +44,8 @@ For the best experience, your terminal environment should have:
     # For Windows (in Command Prompt or PowerShell)
     .\terminal-chat-win.exe
     ```
-
+3.  **Start Chatting**  To start a new conversation, use the search bar at the top to find a friend by their username and press Enter to select them and start chatting.
+   
 ---
 
 ## 🛠️ For Developers (Running from Source)
