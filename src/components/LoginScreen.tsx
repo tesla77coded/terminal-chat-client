@@ -5,7 +5,7 @@ import apiClient from '../api/apiClient.js';
 import { state } from '../state.js';
 import { connectWebSocket } from '../socket/socketClient.js';
 import { AxiosError } from 'axios';
-import { stripPem } from '../crypto/crypto.js';
+import { saveSession } from '../sessionsManager.js';
 
 type Props = {
   setView: (view: 'welcome' | 'chatList') => void;
@@ -30,11 +30,10 @@ const LoginScreen = ({ setView }: Props) => {
       const response = await apiClient.post('/users/login', { username, password });
       state.token = response.data.token;
       state.user = { id: response.data.id, username: response.data.username, email: response.data.email };
-
+      saveSession();
       if (state.keys?.publicKey) {
-        const strippedPublicKey = stripPem(state.keys.publicKey);
         apiClient.post('/users/publicKey',
-          { publicKey: strippedPublicKey },
+          { publicKey: state.keys.publicKey},
           { headers: { Authorization: `Bearer ${state.token}` } }
         ).catch(() => { }); // Fire-and-forget
       }

@@ -9,4 +9,4 @@ state.keys = initializeKeys();
 
 const sessionLoaded = loadSession();
 
-render(React.createElement(App, {sessionLoaded}));
+render(React.createElement(App, { sessionLoaded }));

@@ -3,12 +3,12 @@ import { state } from '../state.js';
 
 let ws: WebSocket | null = null;
 let onMessageReceived: ((message: any) => void) | null = null;
-let onChatListUpdate: (() => void ) | null = null;
+let onChatListUpdate: (() => void) | null = null;
 
 export function connectWebSocket() {
   if (ws || !state.token) return;
   ws = new WebSocket('wss://terminal-chat-backend-tesla77.onrender.com'); // Use your correct port
-
+  // ws = new WebSocket('ws://localhost:9090');
   ws.on('open', () => {
     if (ws) ws.send(JSON.stringify({ type: 'auth', token: state.token }));
   });
@@ -23,7 +23,7 @@ export function connectWebSocket() {
         const currentCount = state.unreadCounts.get(senderId) || 0;
         state.unreadCounts.set(senderId, currentCount + 1);
 
-        if(onChatListUpdate){
+        if (onChatListUpdate) {
           onChatListUpdate();
         }
 
@@ -58,9 +58,9 @@ export function clearOnMessageReceived() {
 }
 
 export function setOnChatListUpdate(handler: () => void) {
-    onChatListUpdate = handler;
+  onChatListUpdate = handler;
 }
 
 export function clearOnChatListUpdate() {
-    onChatListUpdate = null;
+  onChatListUpdate = null;
 };

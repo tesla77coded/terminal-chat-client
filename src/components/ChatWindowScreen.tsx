@@ -24,6 +24,7 @@ type Message = {
   isMine: boolean;
 };
 
+
 type Props = {
   contact: ChatContact;
   setView: (view: 'chatList') => void;
@@ -39,6 +40,7 @@ const ChatWindowScreen = ({ contact, setView }: Props) => {
   const [error, setError] = useState<string | null>(null);
 
   // --- Backend Logic Integration ---
+
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -53,16 +55,19 @@ const ChatWindowScreen = ({ contact, setView }: Props) => {
 
         const decryptedHistory = historyResponse.data.reverse().map(msg => {
           try {
+            console.log('API message content:', msg.content); // Debug: Log content
+            // Handle stringified content (temporary fallback for old data)
+            const content = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
             return {
-              text: hybridDecrypt(msg.content, state.keys!.privateKey),
+              text: hybridDecrypt(content, state.keys!.privateKey),
               isMine: msg.senderId === state.user?.id
             };
           } catch (e) {
+            console.error('Decryption error for message:', msg, 'Error:', e);
             return { text: "Could not decrypt message.", isMine: false };
           }
         });
         setMessages(decryptedHistory);
-
       } catch (err) {
         setError('Could not initialize chat.');
       }
@@ -74,19 +79,31 @@ const ChatWindowScreen = ({ contact, setView }: Props) => {
     setOnMessageReceived((incomingMessage: ApiMessage) => {
       if (incomingMessage.senderId === contact.id) {
         try {
+          console.log('Socket message content:', incomingMessage.content); // Debug: Log content
           const decryptedContent = hybridDecrypt(incomingMessage.content, state.keys!.privateKey);
           setMessages(prev => [...prev, { text: decryptedContent, isMine: false }]);
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          console.error('Socket decryption error:', incomingMessage, 'Error:', e);
+        }
       }
     });
     return () => clearOnMessageReceived();
   }, [contact.id]);
-  // --------------------------------
 
   const handleSubmit = () => {
-    if (inputValue.trim() && recipientPublicKey) {
-      const encryptedPackage = hybridEncrypt(inputValue, recipientPublicKey);
-      sendMessage({ type: 'message', receiverId: contact.id, content: encryptedPackage });
+    if (inputValue.trim() && recipientPublicKey && state.keys?.publicKey) {
+      // Encrypt once for the receiver
+      const contentForReceiver = hybridEncrypt(inputValue, recipientPublicKey);
+      // Encrypt a second time for the sender (using our own public key)
+      const contentForSender = hybridEncrypt(inputValue, state.keys.publicKey);
+
+      // Send both encrypted blobs to the server
+      sendMessage({
+        type: 'message',
+        receiverId: contact.id,
+        contentForSender,
+        contentForReceiver
+      });
 
       setMessages(prev => [...prev, { text: inputValue, isMine: true }]);
       setInputValue('');
