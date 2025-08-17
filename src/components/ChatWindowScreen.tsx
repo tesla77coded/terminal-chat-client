@@ -3,12 +3,23 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import TextInput from 'ink-text-input';
 import { ChatContact } from './ChatListScreen.js';
 import wrapAnsi from 'wrap-ansi';
-
+import fs from 'fs';
 // --- Backend Integration ---
 import apiClient from '../api/apiClient.js';
 import { state } from '../state.js';
 import { sendMessage, setOnMessageReceived, clearOnMessageReceived } from '../socket/socketClient.js';
 import { hybridEncrypt, hybridDecrypt, HybridEncrypted } from '../crypto/crypto.js';
+
+// Simple file logger
+const debugLog = (message: string, data?: any) => {
+  try {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}${data ? ': ' + JSON.stringify(data, null, 2) : ''}\n`;
+    fs.appendFileSync('/tmp/chat-debug.log', logEntry);
+  } catch (e) {
+    // Ignore logging errors
+  }
+};
 
 // The Message type for data from the API
 interface ApiMessage {
@@ -23,7 +34,6 @@ type Message = {
   text: string;
   isMine: boolean;
 };
-
 
 type Props = {
   contact: ChatContact;
@@ -40,38 +50,74 @@ const ChatWindowScreen = ({ contact, setView }: Props) => {
   const [error, setError] = useState<string | null>(null);
 
   // --- Backend Logic Integration ---
-
   useEffect(() => {
     const initialize = async () => {
       try {
+        debugLog('=== INITIALIZING CHAT ===');
+        debugLog('Contact ID', contact.id);
+        debugLog('State user', state.user);
+        debugLog('State token exists', !!state.token);
+        debugLog('State keys exist', !!state.keys);
+
         const keyResponse = await apiClient.get<{ publicKey: string }>(`/users/${contact.id}/publicKey`, {
           headers: { Authorization: `Bearer ${state.token}` },
         });
+        debugLog('Got recipient public key', { success: true });
         setRecipientPublicKey(keyResponse.data.publicKey);
 
         const historyResponse = await apiClient.get<ApiMessage[]>(`/messages/${contact.id}`, {
           headers: { Authorization: `Bearer ${state.token}` },
         });
 
-        const decryptedHistory = historyResponse.data.reverse().map(msg => {
+        debugLog('=== HISTORY RESPONSE ===');
+        debugLog('Total messages', historyResponse.data.length);
+        if (historyResponse.data.length > 0) {
+          debugLog('First message sample', {
+            id: historyResponse.data[0].id,
+            senderId: historyResponse.data[0].senderId,
+            contentType: typeof historyResponse.data[0].content,
+            hasRequiredFields: !!(historyResponse.data[0].content &&
+              typeof historyResponse.data[0].content === 'object' &&
+              'iv' in historyResponse.data[0].content &&
+              'encryptedKey' in historyResponse.data[0].content)
+          });
+        }
+
+        const decryptedHistory = historyResponse.data.reverse().map((msg, index) => {
           try {
-            console.log('API message content:', msg.content); // Debug: Log content
+            debugLog(`Decrypting message ${index}`, { id: msg.id, senderId: msg.senderId });
+
             // Handle stringified content (temporary fallback for old data)
             const content = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+
+            const decryptedText = hybridDecrypt(content, state.keys!.privateKey);
+            debugLog(`Decryption success ${index}`, { text: decryptedText.substring(0, 50) + '...' });
+
             return {
-              text: hybridDecrypt(content, state.keys!.privateKey),
+              text: decryptedText,
               isMine: msg.senderId === state.user?.id
             };
           } catch (e) {
-            console.error('Decryption error for message:', msg, 'Error:', e);
+            debugLog(`Decryption error ${index}`, {
+              error: (e as Error).message,
+              msgId: msg.id,
+              contentType: typeof msg.content
+            });
             return { text: "Could not decrypt message.", isMine: false };
           }
         });
+
+        debugLog('=== FINAL RESULTS ===');
+        debugLog('Decrypted message count', decryptedHistory.length);
+        debugLog('Successful decryptions', decryptedHistory.filter(m => m.text !== "Could not decrypt message.").length);
+
         setMessages(decryptedHistory);
       } catch (err) {
+        debugLog('Initialize error', { error: (err as Error).message, stack: (err as Error).stack });
         setError('Could not initialize chat.');
       }
     };
+
     initialize();
   }, [contact.id]);
 
@@ -79,19 +125,40 @@ const ChatWindowScreen = ({ contact, setView }: Props) => {
     setOnMessageReceived((incomingMessage: ApiMessage) => {
       if (incomingMessage.senderId === contact.id) {
         try {
-          console.log('Socket message content:', incomingMessage.content); // Debug: Log content
+          debugLog('=== REAL-TIME MESSAGE ===');
+          debugLog('Incoming message', {
+            id: incomingMessage.id,
+            senderId: incomingMessage.senderId,
+            contentType: typeof incomingMessage.content
+          });
+
           const decryptedContent = hybridDecrypt(incomingMessage.content, state.keys!.privateKey);
-          setMessages(prev => [...prev, { text: decryptedContent, isMine: false }]);
+          debugLog('Real-time decryption success', { text: decryptedContent.substring(0, 50) + '...' });
+
+          setMessages(prev => {
+            const newMessages = [...prev, { text: decryptedContent, isMine: false }];
+            debugLog('Messages state updated', {
+              previousCount: prev.length,
+              newCount: newMessages.length
+            });
+            return newMessages;
+          });
         } catch (e) {
-          console.error('Socket decryption error:', incomingMessage, 'Error:', e);
+          debugLog('Socket decryption error', {
+            error: (e as Error).message,
+            msgId: incomingMessage.id
+          });
         }
       }
     });
+
     return () => clearOnMessageReceived();
   }, [contact.id]);
 
   const handleSubmit = () => {
     if (inputValue.trim() && recipientPublicKey && state.keys?.publicKey) {
+      debugLog('=== SENDING MESSAGE ===', { text: inputValue.substring(0, 50) + '...' });
+
       // Encrypt once for the receiver
       const contentForReceiver = hybridEncrypt(inputValue, recipientPublicKey);
       // Encrypt a second time for the sender (using our own public key)
@@ -168,7 +235,7 @@ const ChatWindowScreen = ({ contact, setView }: Props) => {
   return (
     <Box flexDirection="column" height="100%" width="100%">
       <Box paddingX={1} borderStyle="round" borderColor="black" height={3}>
-        <Text>Chatting with: <Text bold color="blue">{contact.username}</Text></Text>
+        <Text>Chatting with: <Text bold color="blue">{contact.username}</Text> (Messages: {messages.length})</Text>
         <Box flexGrow={1} />
         <Text dimColor>
           [Esc] Back | {isMultilineMode ? 'Ctrl+Enter: Send' : 'Enter: Send'} | ↑↓ Scroll Messages
